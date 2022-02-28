@@ -363,14 +363,15 @@ class ValetEnvironmentType extends EnvironmentTypeBase implements PluginConfigur
                     $enableSSL = $domain['ssl'] ?? false;
 
                     if ($this->valetSiteExists($name)) {
-                        $command = new ValetExecutable();
-
                         if ($enableSSL && !$hasCert) {
-                            $command->secure($name);
+                            $stack->exec(
+                                (new ValetExecutable())->secure($name)->build()
+                            );
                         } elseif (!$enableSSL && $hasCert) {
-                            $command->unsecure($name);
+                            $stack->exec(
+                                (new ValetExecutable())->unsecure($name)->build()
+                            );
                         }
-                        $stack->exec($command->build());
                     } else {
                         $stack->exec(
                             (new ValetExecutable())->link($name)->build()
