@@ -112,12 +112,6 @@ class ValetEnvironmentType extends EnvironmentTypeBase implements PluginConfigur
     public function stop(array $opts = []): void
     {
         try {
-            if ($this->confirm('Stop the valet services?')) {
-                $this->taskExec(
-                    (new ValetExecutable())->setArgument('stop')->build()
-                )->run();
-            }
-
             /** @var \Droath\RoboDockerCompose\Task\Up $task */
             $task = $this->taskDockerComposeDown();
             $status = $task->file($this->valetDockerComposeFilePath())->run();
@@ -126,6 +120,12 @@ class ValetEnvironmentType extends EnvironmentTypeBase implements PluginConfigur
                 $this->success(
                     'The docker services have been stopped!'
                 );
+            }
+
+            if ($this->confirm('Stop local Valet services? [no]')) {
+                $this->taskExec(
+                    (new ValetExecutable())->setArgument('stop')->build()
+                )->run();
             }
         } catch (\Exception $exception) {
             $this->error($exception->getMessage());
@@ -222,6 +222,17 @@ class ValetEnvironmentType extends EnvironmentTypeBase implements PluginConfigur
         }
 
         return null;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function envPackages(): array
+    {
+        return [
+            'drush',
+            'composer',
+        ];
     }
 
     /**
