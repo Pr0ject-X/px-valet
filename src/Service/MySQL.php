@@ -61,13 +61,14 @@ class MySQL extends DockerServiceBase
      */
     public function definition(): array
     {
-        $image = static::image();
+        $package = $this->packageName();
+        $unique = $this->uniqueIdentifier();
         $config = $this->getConfiguration();
 
         return parent::definition() + [
             'ports' => ["{$config['port']}:3306"],
             'volumes' => [
-                "{$image}-data:/var/lib/mysql"
+                "{$unique}-{$package}-data:/var/lib/mysql"
             ],
             'environment' => $this->environment(),
         ];

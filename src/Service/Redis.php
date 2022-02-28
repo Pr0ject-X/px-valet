@@ -41,12 +41,14 @@ class Redis extends DockerServiceBase
      */
     public function definition(): array
     {
+        $package = $this->packageName();
+        $unique = $this->uniqueIdentifier();
         $config = $this->getConfiguration();
 
         return parent::definition() + [
             'ports' => ["{$config['port']}:6379"],
             'volumes' => [
-                'redis-data:/data'
+                "{$unique}-{$package}-data:/data"
             ],
         ];
     }

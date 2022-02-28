@@ -111,6 +111,17 @@ abstract class DockerServiceBase implements DockerServiceInterface
     }
 
     /**
+     * Get the docker service unique identifier.
+     *
+     * @return string
+     *   The unique identifier.
+     */
+    protected function uniqueIdentifier(): string
+    {
+        return mb_strtolower(basename(PxApp::projectRootPath()));
+    }
+
+    /**
      * Get the docker service configuration.
      *
      * @return array
