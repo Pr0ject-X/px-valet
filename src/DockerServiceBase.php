@@ -96,6 +96,14 @@ abstract class DockerServiceBase implements DockerServiceInterface
     /**
      * {@inheritDoc}
      */
+    public function templateDirectory(): string
+    {
+        return Valet::rootPath() . "/templates/services/{$this->packageName()}";
+    }
+
+    /**
+     * {@inheritDoc}
+     */
     public function configurationQuestions(): array
     {
         $image = static::image();
@@ -109,6 +117,7 @@ abstract class DockerServiceBase implements DockerServiceInterface
             )),
         ];
     }
+
 
     /**
      * Get the docker service unique identifier.

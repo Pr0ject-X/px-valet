@@ -412,8 +412,9 @@ class ValetEnvironmentType extends EnvironmentTypeBase implements PluginConfigur
     protected function writeDockerCompose(): self
     {
         $manager = $this->dockerServiceManager();
+        $projectDockerDir = $this->valetDockerDirectory();
 
-        $dockerCompose = (new DockerComposeBuilder($this->valetDockerDirectory()))
+        $dockerCompose = (new DockerComposeBuilder($projectDockerDir))
             ->setVersion(3.1);
 
         foreach (array_keys($this->dockerServiceGroups()) as $group) {
@@ -427,9 +428,19 @@ class ValetEnvironmentType extends EnvironmentTypeBase implements PluginConfigur
                     continue;
                 }
                 $dockerCompose->setService(
-                    "{$group}-{$service->packageName()}",
+                    $service->packageName(),
                     $service
                 );
+
+                if (
+                    ($templateDir = $service->templateDirectory())
+                    && file_exists($templateDir)
+                ) {
+                    $this->_mirrorDir(
+                        $templateDir,
+                        "{$projectDockerDir}/services/{$service->packageName()}"
+                    );
+                }
             }
         }
 

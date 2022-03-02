@@ -50,6 +50,14 @@ interface DockerServiceInterface
     public function definition(): array;
 
     /**
+     * The docker service template directory.
+     *
+     * @return string
+     *   The docker service template directory.
+     */
+    public function templateDirectory(): string;
+
+    /**
      * The docker service configuration questions.
      *
      * @return \Symfony\Component\Console\Question\ChoiceQuestion[]

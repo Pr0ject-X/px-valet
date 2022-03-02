@@ -68,7 +68,8 @@ class MySQL extends DockerServiceBase
         return parent::definition() + [
             'ports' => ["{$config['port']}:3306"],
             'volumes' => [
-                "{$unique}-{$package}-data:/var/lib/mysql"
+                "{$unique}-{$package}-data:/var/lib/mysql",
+                "./services/{$package}/conf.d:/etc/mysql/conf.d"
             ],
             'environment' => $this->environment(),
         ];
