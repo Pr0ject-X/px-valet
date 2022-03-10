@@ -78,7 +78,7 @@ class DockerComposeBuilder
             if (isset($definition['volumes'])) {
                 foreach ($definition['volumes'] as $volume) {
                     $data = explode(':', $volume);
-                    if ($namedVolume = array_shift($data)) {
+                    if (($namedVolume = array_shift($data)) && strpos($namedVolume, '/') == false) {
                         $this->setVolumes($namedVolume, [
                             'driver' => 'local'
                         ]);
