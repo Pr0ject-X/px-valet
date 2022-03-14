@@ -4,12 +4,10 @@ declare(strict_types=1);
 
 namespace Pr0jectX\PxValet\ExecutableBuilder\Commands;
 
-use Pr0jectX\Px\ExecutableBuilder\ExecutableBuilderBase;
-
 /**
  * Define the valet executable instance.
  */
-class ValetExecutable extends ExecutableBuilderBase
+class ValetExecutable extends SubCommandExecutable
 {
     /**
      * {@inheritdoc}
@@ -17,12 +15,7 @@ class ValetExecutable extends ExecutableBuilderBase
     protected const EXECUTABLE = 'valet';
 
     /**
-     * @var string
-     */
-    protected $subCommand;
-
-    /**
-     * Set the valet install.
+     * Invoke the Valet install.
      *
      * @return $this
      */
@@ -34,7 +27,7 @@ class ValetExecutable extends ExecutableBuilderBase
     }
 
     /**
-     * Set the valet link.
+     * Invoke the Valet link.
      *
      * @param string $name
      *   The project domain name.
@@ -49,7 +42,7 @@ class ValetExecutable extends ExecutableBuilderBase
     }
 
     /**
-     * Set the valet unlink.
+     * Invoke the Valet unlink.
      *
      * @param string $name
      *   The project domain name.
@@ -64,7 +57,7 @@ class ValetExecutable extends ExecutableBuilderBase
     }
 
     /**
-     * Set the valet secure.
+     * Invoke the Valet secure.
      *
      * @param string $name
      *   The project domain name.
@@ -79,7 +72,7 @@ class ValetExecutable extends ExecutableBuilderBase
     }
 
     /**
-     * Set the valet unsecure.
+     * Invoke the Valet unsecure.
      *
      * @param string $name
      *   The project domain name.
@@ -94,32 +87,21 @@ class ValetExecutable extends ExecutableBuilderBase
     }
 
     /**
-     * Set the command sub-command.
+     * Invoke the Valet restart.
      *
-     * @param string $subCommand
-     *   The executable sub command.
+     * @param string|null $service
+     *   The Valet service name.
      *
      * @return $this
      */
-    protected function setSubCommand(string $subCommand): self
+    public function restart(?string $service = null): self
     {
-        $this->subCommand = $subCommand;
+        $command = $this->setSubCommand(__FUNCTION__);
+
+        if (isset($service) && in_array($service, ['dnsmasq', 'nginx', 'php'])) {
+            $command->setArgument($service);
+        }
 
         return $this;
-    }
-
-    /**
-     * Define the command structure.
-     *
-     * @return array
-     */
-    protected function executableStructure(): array
-    {
-        return [
-            static::EXECUTABLE,
-            $this->subCommand,
-            $this->flattenOptions(),
-            $this->flattenArguments()
-        ];
     }
 }

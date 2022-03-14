@@ -13,6 +13,7 @@ use Pr0jectX\PxValet\ConsoleQuestionTrait;
 use Pr0jectX\PxValet\Contracts\DockerServiceInterface;
 use Pr0jectX\PxValet\DockerComposeBuilder;
 use Pr0jectX\PxValet\DockerServiceBase;
+use Pr0jectX\PxValet\ExecutableBuilder\Commands\Pecl;
 use Pr0jectX\PxValet\ExecutableBuilder\Commands\ValetExecutable;
 use Pr0jectX\PxValet\ProjectX\Plugin\EnvironmentType\Commands\DatabaseCommands;
 use Pr0jectX\PxValet\Valet;
@@ -37,6 +38,11 @@ class ValetEnvironmentType extends EnvironmentTypeBase implements PluginConfigur
      *   The value configuration directory path.
      */
     protected $configDirectory;
+
+    /**
+     * Define the default php extensions.
+     */
+    protected const DEFAULT_PHP_EXTENSION = 'apcu, xdebug';
 
     /**
      * {@inheritDoc}
@@ -81,8 +87,19 @@ class ValetEnvironmentType extends EnvironmentTypeBase implements PluginConfigur
     {
         $this
             ->printBanner()
-            ->runInstallation()
+            ->runInitialization()
             ->writeDockerCompose();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function install(array $opts = []): void
+    {
+        $this
+            ->installValet()
+            ->addPHPConfiguration()
+            ->installPhpExtensions();
     }
 
     /**
@@ -344,23 +361,14 @@ class ValetEnvironmentType extends EnvironmentTypeBase implements PluginConfigur
     }
 
     /**
-     * Run the valet installation.
+     * Run the Valet project initialization.
      *
-     * @return self
+     * @return $this
      */
-    protected function runInstallation(): self
+    protected function runInitialization(): self
     {
         try {
             $stack = $this->taskExecStack();
-
-            if (
-                !$this->valetConfigDirExists()
-                || $this->confirm('Valet is installed already, reinstall?')
-            ) {
-                $stack->exec(
-                    (new ValetExecutable())->install()->build()
-                );
-            }
 
             if ($domains = $this->getConfigurations()['domains']) {
                 $stack->exec("cd {$this->envAppRoot()}");
@@ -405,6 +413,149 @@ class ValetEnvironmentType extends EnvironmentTypeBase implements PluginConfigur
     }
 
     /**
+     * Install Valet if config directory doesn't not exist.
+     *
+     * @return $this
+     */
+    protected function installValet(): self
+    {
+        if (
+            !$this->valetConfigDirExists()
+            || $this->confirm('Valet is installed already, reinstall?')
+        ) {
+            $this->_exec(
+                (new ValetExecutable())->install()->build()
+            );
+        }
+
+        return $this;
+    }
+
+    /**
+     * Install the PHP extensions using PECL.
+     *
+     * @return $this
+     */
+    protected function installPhpExtensions(): self
+    {
+        if ($this->confirm('Install PHP Extensions?', true)) {
+            $question = ($this->choice(
+                'Select the PHP extensions, or other to add a custom',
+                $this->extensionOptions(),
+                static::DEFAULT_PHP_EXTENSION
+            ))->setMultiselect(true);
+
+            if ($extensions = (array) $this->doAsk($question)) {
+                if (in_array('other', $extensions, true)) {
+                    $index = array_search('other', $extensions, true);
+                    unset($extensions[$index]);
+
+                    $otherExtensions = $this->doAsk(
+                        $this->setRequiredQuestion(new Question(
+                            $this->formatQuestion('Input the other PHP extension(s): ')
+                        ))
+                    );
+                    $extensions = array_merge(
+                        $extensions,
+                        array_map('trim', explode(',', $otherExtensions))
+                    );
+                }
+
+                $this->_exec((new Pecl())->install($extensions)->build());
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * Add common PHP ini configurations into cond.d directory.
+     *
+     * @return $this
+     */
+    protected function addPHPConfiguration(): self
+    {
+        if (!$this->hasPHPConfTemplateFiles() && $this->confirm('Add PHP ini configurations?')) {
+            $stack = $this->taskFilesystemStack();
+            $confDirPath = $this->getPHPConfDirectoryPath();
+
+            foreach (Valet::getTemplateDirFiles('php/conf.d') as $file) {
+                $stack->copy(
+                    $file->getRealPath(),
+                    "$confDirPath/{$file->getFilename()}"
+                );
+            }
+            $stack->run();
+            $this->_exec((new ValetExecutable())->restart('php')->build());
+        }
+
+        return $this;
+    }
+
+    /**
+     * Define the PHP extension options.
+     *
+     * @param bool $allowOther
+     *   A flag to allow other to be appended.
+     *
+     * @return string[]
+     *   An array of PHP extension, along with other if allowed.
+     */
+    protected function extensionOptions(
+        bool $allowOther = true
+    ): array {
+        $options = [
+            'apcu',
+            'yaml',
+            'xdebug',
+            'imagick',
+            'memcached',
+            'uploadprogress',
+        ];
+
+        if ($allowOther) {
+            $options[] = 'other';
+        }
+
+        return $options;
+    }
+
+    /**
+     * Has PHP conf template configuration files.
+     *
+     * @return bool
+     */
+    protected function hasPHPConfTemplateFiles(): bool
+    {
+        $confDirectoryPath = $this->getPHPConfDirectoryPath();
+
+        foreach (Valet::getTemplateDirFiles('php/conf.d') as $file) {
+            if (!file_exists("$confDirectoryPath/{$file->getFilename()}")) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Get the current PHP conf.d directory path.
+     *
+     * @return string|null
+     *   Return the directory path; otherwise null if it doesn't exist.
+     */
+    protected function getPHPConfDirectoryPath(): ?string
+    {
+        $confDir = dirname(php_ini_loaded_file()) . '/conf.d';
+
+        if (!file_exists($confDir)) {
+            return null;
+        }
+
+        return $confDir;
+    }
+
+    /**
      * Write the docker compose file.
      *
      * @return self
@@ -438,7 +589,7 @@ class ValetEnvironmentType extends EnvironmentTypeBase implements PluginConfigur
                 ) {
                     $this->_mirrorDir(
                         $templateDir,
-                        "{$projectDockerDir}/services/{$service->packageName()}"
+                        "$projectDockerDir/services/{$service->packageName()}"
                     );
                 }
             }
@@ -488,7 +639,7 @@ class ValetEnvironmentType extends EnvironmentTypeBase implements PluginConfigur
             }
             $host = $domain['name'];
             $schema = $domain['ssl'] ? 'https' : 'http';
-            $domains[$host] = "{$schema}://{$host}.test";
+            $domains[$host] = "$schema://$host.test";
         }
 
         return $domains;
@@ -561,7 +712,7 @@ class ValetEnvironmentType extends EnvironmentTypeBase implements PluginConfigur
                 $serviceDefault = !empty($images) ? implode(',', array_keys($images)) : null;
 
                 $confirm = $required || !empty($images) || $this->confirm(
-                    "Add {$group} services"
+                    "Add $group services"
                 );
 
                 if ($confirm) {
@@ -570,7 +721,7 @@ class ValetEnvironmentType extends EnvironmentTypeBase implements PluginConfigur
                     }
 
                     $question = new ChoiceQuestion(
-                        $this->formatQuestionDefault("Select the {$group} service", $serviceDefault),
+                        $this->formatQuestionDefault("Select the $group service", $serviceDefault),
                         $options,
                         $serviceDefault
                     );
@@ -587,6 +738,9 @@ class ValetEnvironmentType extends EnvironmentTypeBase implements PluginConfigur
                     foreach ($image as $index => $name) {
                         $value[$index]['image'] = $name;
                         $instance = $manager->createInstance($name, $images[$name] ?? []);
+                        if (!isset($instance)) {
+                            continue;
+                        }
 
                         foreach ($instance->configurationQuestions() as $key => $question) {
                             if (!$question instanceof Question) {
@@ -613,8 +767,8 @@ class ValetEnvironmentType extends EnvironmentTypeBase implements PluginConfigur
         $home = PxApp::userDir();
 
         return [
-            "{$home}/.valet",
-            "{$home}/.config/valet",
+            "$home/.valet",
+            "$home/.config/valet",
         ];
     }
 
@@ -641,7 +795,7 @@ class ValetEnvironmentType extends EnvironmentTypeBase implements PluginConfigur
     protected function valetSiteExists(string $domain): bool
     {
         return ($configDir = $this->findValetConfigDir())
-            && file_exists("{$configDir}/Sites/{$domain}");
+            && file_exists("$configDir/Sites/$domain");
     }
 
     /**
@@ -660,7 +814,7 @@ class ValetEnvironmentType extends EnvironmentTypeBase implements PluginConfigur
         string $tld = 'test'
     ): bool {
         return ($configDir = $this->findValetConfigDir())
-            && file_exists("{$configDir}/Certificates/{$domain}.{$tld}.crt");
+            && file_exists("$configDir/Certificates/$domain.$tld.crt");
     }
 
     /**
