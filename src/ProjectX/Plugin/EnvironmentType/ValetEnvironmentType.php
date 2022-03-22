@@ -108,6 +108,8 @@ class ValetEnvironmentType extends EnvironmentTypeBase implements PluginConfigur
     public function start(array $opts = []): void
     {
         try {
+            $this->taskExec((new ValetExecutable())->start()->build())->run();
+
             /** @var \Droath\RoboDockerCompose\Task\Up $task */
             $task = $this->taskDockerComposeUp();
 
@@ -141,7 +143,7 @@ class ValetEnvironmentType extends EnvironmentTypeBase implements PluginConfigur
 
             if ($this->confirm('Stop local Valet services? [no]')) {
                 $this->taskExec(
-                    (new ValetExecutable())->setArgument('stop')->build()
+                    (new ValetExecutable())->stop()->build()
                 )->run();
             }
         } catch (\Exception $exception) {

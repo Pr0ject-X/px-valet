@@ -27,6 +27,30 @@ class ValetExecutable extends SubCommandExecutable
     }
 
     /**
+     * Invoke the Valet start.
+     *
+     * @return $this
+     */
+    public function start(): self
+    {
+        $this->setSubCommand(__FUNCTION__);
+
+        return $this;
+    }
+
+    /**
+     * Invoke the Valet stop.
+     *
+     * @return $this
+     */
+    public function stop(): self
+    {
+        $this->setSubCommand(__FUNCTION__);
+
+        return $this;
+    }
+
+    /**
      * Invoke the Valet link.
      *
      * @param string $name
