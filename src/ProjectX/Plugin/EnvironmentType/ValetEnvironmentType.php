@@ -265,7 +265,7 @@ class ValetEnvironmentType extends EnvironmentTypeBase implements PluginConfigur
     /**
      * {@inheritDoc}
      */
-    public function envDatabases(): array
+    public function envDatabases(bool $internal = false): array
     {
         $databases = [];
         $services = $this->getConfigurationGroupedByImages(
